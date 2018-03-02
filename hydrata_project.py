@@ -80,6 +80,27 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         print 'warning: no structures found.'
         structures = None
 
+    print 'Setting up friction...'
+    frictions = []
+    if friction_data_filename:
+        print 'processing frictions from :%s' % friction_data_filename
+        ogr_shapefile = ogr.Open(friction_data_filename)
+        ogr_layer = ogr_shapefile.GetLayer(0)
+        ogr_layer_feature = ogr_layer.GetNextFeature()
+        while ogr_layer_feature:
+            friction_poly = json.loads(ogr_layer_feature.GetGeometryRef().ExportToJson())['coordinates'][0]
+            friction_value = float(ogr_layer_feature.GetField('mannings'))
+            friction_couple = [friction_poly, friction_value]
+            frictions.append(friction_couple)
+            ogr_layer_feature = None
+            ogr_layer_feature = ogr_layer.GetNextFeature()
+
+        frictions.append(['All', 0.04])
+        print 'frictions: %s' % frictions
+    else:
+        frictions.append(['All', 0.04])
+        print 'warning: no frictions found.'
+
     print 'Setting up boundary conditions...'
     ogr_shapefile = ogr.Open(bounding_polygon_filename)
     ogr_layer = ogr_shapefile.GetLayer(0)
@@ -124,7 +145,11 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         domain,
         nan_treatment='exception',
     )
-    domain.set_quantity('friction', 0.035)
+    friction_function = qs.composite_quantity_setting_function(
+        frictions,
+        domain
+    )
+    domain.set_quantity('friction', friction_function, verbose=True)
     domain.set_quantity('stage', 0.0)
     domain.set_quantity('elevation', topography_function, verbose=True, alpha=0.99)
     domain.set_minimum_storable_height(0.005)
@@ -145,7 +170,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
             ogr_layer_feature = None
             ogr_layer_feature = ogr_layer.GetNextFeature()
 
-    print 'APPLY INFLOWS'
+    print 'Applying surface inflows...'
     if inflow_data_filename:
         ogr_shapefile = ogr.Open(inflow_data_filename)
         ogr_layer = ogr_shapefile.GetLayer(0)
@@ -207,7 +232,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         min_allowed_height=1.0e-05,
         output_dir=(base_dir + '/outputs/'),
         bounding_polygon=bounding_polygon,
-        # internal_holes=structures,
+        internal_holes=structures,
         verbose=False,
         k_nearest_neighbours=3,
         creation_options=[]
