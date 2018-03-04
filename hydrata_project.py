@@ -7,7 +7,7 @@ import anuga.utilities.quantity_setting_functions as qs
 import anuga.utilities.spatialInputUtil as su
 import anuga.utilities.plot_utils as util
 import json
-from osgeo import ogr
+from osgeo import ogr, gdal, osr
 
 if __name__ != '__main__':
     from ..database_utils import write_percentage_complete
@@ -52,7 +52,6 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         friction_data_filename = get_filename('friction_data', '.shp')
     except OSError as e:
         friction_data_filename = None
-    bounding_polygon = su.read_polygon(bounding_polygon_filename)
 
     print 'bounding_polygon_filename: %s' % bounding_polygon_filename
     print 'structures_filename: %s' % structures_filename
@@ -60,7 +59,36 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     print 'inflow_data_filename: %s' % inflow_data_filename
     print 'friction_data_filename: %s' % friction_data_filename
     print 'elevation_data_filename: %s' % elevation_data_filename
-    print 'bounding_polygon: %s' % bounding_polygon
+
+    # create a list of project files
+    vector_filenames = [
+        bounding_polygon_filename,
+        structures_filename,
+        rain_data_filename,
+        inflow_data_filename,
+        friction_data_filename
+    ]
+
+    # set the projection system for ANUGA calculations from the geotiff elevation data
+    elevation_data_gdal = gdal.Open(elevation_data_filename)
+    project_spatial_ref = osr.SpatialReference()
+    project_spatial_ref.ImportFromWkt(elevation_data_gdal.GetProjectionRef())
+    project_spatial_ref_epsg_code = int(project_spatial_ref.GetAttrValue("AUTHORITY", 1))
+
+    # check the spatial reference system of the project files matches that of the calculation
+    for filename in vector_filenames:
+        if filename:
+            prj_text = open(filename[:-4] + '.prj').read()
+            srs = osr.SpatialReference()
+            srs.ImportFromESRI([prj_text])
+            srs.AutoIdentifyEPSG()
+            print 'filename is: %s' % filename
+            print 'EPSG is: %s' % srs.GetAuthorityCode(None)
+            if srs.GetAuthorityCode(None) != project_spatial_ref_epsg_code:
+                print 'warning spatial refs are not maching: %s, %s' % (
+                    srs.GetAuthorityCode(None),
+                    project_spatial_ref_epsg_code
+                )
 
     print 'Setting up structures...'
     if structures_filename:
@@ -123,6 +151,8 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         bdy_index = bdy_index + 1
         print 'bdy_tags: %s' % bdy_tags
     print 'bdy: %s' % bdy
+
+    bounding_polygon = su.read_polygon(bounding_polygon_filename)
 
     create_mesh_from_regions(
         bounding_polygon,
@@ -226,7 +256,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         CellSize=1.0,
         lower_left=None,
         upper_right=None,
-        EPSG_CODE=28356,
+        EPSG_CODE=project_spatial_ref_epsg_code,
         proj4string=None,
         velocity_extrapolation=True,
         min_allowed_height=1.0e-05,
