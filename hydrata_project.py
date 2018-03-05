@@ -34,7 +34,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
                                        )
         return filename
 
-    bounding_polygon_filename = get_filename('bounding_polygon', '.shp')
+    boundary_data_filename = get_filename('boundary_data', '.shp')
     elevation_data_filename = get_filename('elevation_data', '.tif')
     try:
         structures_filename = get_filename('structures', '.shp')
@@ -53,7 +53,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     except OSError as e:
         friction_data_filename = None
 
-    print 'bounding_polygon_filename: %s' % bounding_polygon_filename
+    print 'boundary_data_filename: %s' % boundary_data_filename
     print 'structures_filename: %s' % structures_filename
     print 'rain_data_filename: %s' % rain_data_filename
     print 'inflow_data_filename: %s' % inflow_data_filename
@@ -62,7 +62,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
 
     # create a list of project files
     vector_filenames = [
-        bounding_polygon_filename,
+        boundary_data_filename,
         structures_filename,
         rain_data_filename,
         inflow_data_filename,
@@ -130,7 +130,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         print 'warning: no frictions found.'
 
     print 'Setting up boundary conditions...'
-    ogr_shapefile = ogr.Open(bounding_polygon_filename)
+    ogr_shapefile = ogr.Open(boundary_data_filename)
     ogr_layer = ogr_shapefile.GetLayer(0)
     ogr_layer_definition = ogr_layer.GetLayerDefn()
     print 'ogr_layer_definition.GetGeomType: %s' % ogr_layer_definition.GetGeomType()
@@ -152,10 +152,10 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         print 'bdy_tags: %s' % bdy_tags
     print 'bdy: %s' % bdy
 
-    bounding_polygon = su.read_polygon(bounding_polygon_filename)
+    boundary_data = su.read_polygon(boundary_data_filename)
 
     create_mesh_from_regions(
-        bounding_polygon,
+        boundary_data,
         boundary_tags=bdy_tags,
         maximum_triangle_area=max_triangle_area,
         interior_regions=None,
@@ -231,7 +231,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         elif value == 'Bt':
             bdy[key] = Bt
         else:
-            print 'No matching boundary condition exists - please check your shapefile attributes in: %s' % bounding_polygon_filename
+            print 'No matching boundary condition exists - please check your shapefile attributes in: %s' % boundary_data_filename
     bdy['interior'] = Br
     print 'bdy: %s' % bdy
 
@@ -261,7 +261,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         velocity_extrapolation=True,
         min_allowed_height=1.0e-05,
         output_dir=(base_dir + '/outputs/'),
-        bounding_polygon=bounding_polygon,
+        bounding_polygon=boundary_data,
         internal_holes=structures,
         verbose=False,
         k_nearest_neighbours=3,
