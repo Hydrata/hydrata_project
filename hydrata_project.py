@@ -134,13 +134,12 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     ogr_layer = ogr_shapefile.GetLayer(0)
     ogr_layer_definition = ogr_layer.GetLayerDefn()
     print 'ogr_layer_definition.GetGeomType: %s' % ogr_layer_definition.GetGeomType()
-    bdy_index = 0
+    boundary_tag_index = 0
     bdy_tags = {}
     bdy = {}
 
     ogr_layer_feature = ogr_layer.GetNextFeature()
     while ogr_layer_feature:
-        boundary_tag_index = int(ogr_layer_feature.GetField('id'))
         boundary_tag_key = ogr_layer_feature.GetField('bdy_tag_k')
         boundary_tag_value = ogr_layer_feature.GetField('bdy_tag_v')
         bdy_tags[boundary_tag_key] = [boundary_tag_index * 2, boundary_tag_index * 2 + 1]
@@ -148,7 +147,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         geom = ogr_layer_feature.GetGeometryRef().GetPoints()
         ogr_layer_feature = None
         ogr_layer_feature = ogr_layer.GetNextFeature()
-        bdy_index = bdy_index + 1
+        boundary_tag_index = boundary_tag_index + 1
         print 'bdy_tags: %s' % bdy_tags
     print 'bdy: %s' % bdy
 
@@ -191,7 +190,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         rainfall = 0
         ogr_layer_feature = ogr_layer.GetNextFeature()
         while ogr_layer_feature:
-            rainfall = int(ogr_layer_feature.GetField('rate_mm_hr'))
+            rainfall = float(ogr_layer_feature.GetField('rate_mm_hr'))
             polygon = su.read_polygon(rain_data_filename)
             print "applying Polygonal_rate_operator with rate, polygon:"
             print rainfall
@@ -207,7 +206,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         ogr_layer_definition = ogr_layer.GetLayerDefn()
         ogr_layer_feature = ogr_layer.GetNextFeature()
         while ogr_layer_feature:
-            in_fixed = int(ogr_layer_feature.GetField('in_fixed'))
+            in_fixed = float(ogr_layer_feature.GetField('in_fixed'))
             line = ogr_layer_feature.GetGeometryRef().GetPoints()
             print "applying Inlet_operator with line, in_fixed:"
             print line
