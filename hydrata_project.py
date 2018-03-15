@@ -232,11 +232,15 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         else:
             print 'No matching boundary condition exists - please check your shapefile attributes in: %s' % boundary_data_filename
 
-    # set a default value for exterior boundary if it is not already set
+    # set a default value for exterior & interior boundary if it is not already set
     try:
         bdy['exterior']
     except KeyError:
         bdy['exterior'] = Br
+    try:
+        bdy['interior']
+    except KeyError:
+        bdy['interior'] = Br
 
     print 'bdy: %s' % bdy
 
