@@ -7,6 +7,7 @@ import anuga.utilities.quantity_setting_functions as qs
 import anuga.utilities.spatialInputUtil as su
 import anuga.utilities.plot_utils as util
 import json
+import logging
 from osgeo import ogr, gdal, osr
 
 if __name__ != '__main__':
@@ -16,7 +17,9 @@ if __name__ != '__main__':
 def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     yieldstep = kwargs['yieldstep']
     finaltime = kwargs['finaltime']
+    logger = logging.getLogger(run_id)
     max_triangle_area = kwargs['max_triangle_area']
+    logger.info('Starting hydrata_project')
 
     if run_id == 'local_run':
         base_dir = os.getcwd()
@@ -53,12 +56,12 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     except OSError as e:
         friction_data_filename = None
 
-    print 'boundary_data_filename: %s' % boundary_data_filename
-    print 'structures_filename: %s' % structures_filename
-    print 'rain_data_filename: %s' % rain_data_filename
-    print 'inflow_data_filename: %s' % inflow_data_filename
-    print 'friction_data_filename: %s' % friction_data_filename
-    print 'elevation_data_filename: %s' % elevation_data_filename
+    logger.info('boundary_data_filename: %s' % boundary_data_filename)
+    logger.info('structures_filename: %s' % structures_filename)
+    logger.info('rain_data_filename: %s' % rain_data_filename)
+    logger.info('inflow_data_filename: %s' % inflow_data_filename)
+    logger.info('friction_data_filename: %s' % friction_data_filename)
+    logger.info('elevation_data_filename: %s' % elevation_data_filename)
 
     # create a list of project files
     vector_filenames = [
@@ -82,18 +85,18 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
             srs = osr.SpatialReference()
             srs.ImportFromESRI([prj_text])
             srs.AutoIdentifyEPSG()
-            print 'filename is: %s' % filename
-            print 'EPSG is: %s' % srs.GetAuthorityCode(None)
-            if srs.GetAuthorityCode(None) != project_spatial_ref_epsg_code:
-                print 'warning spatial refs are not maching: %s, %s' % (
+            logger.info('filename is: %s' % filename)
+            logger.info('EPSG is: %s' % srs.GetAuthorityCode(None))
+            if str(srs.GetAuthorityCode(None)) != str(project_spatial_ref_epsg_code):
+                logger.warning('warning spatial refs are not maching: %s, %s' % (
                     srs.GetAuthorityCode(None),
                     project_spatial_ref_epsg_code
-                )
+                ))
 
-    print 'Setting up structures...'
+    logger.info('Setting up structures...')
     if structures_filename:
         structures = []
-        print 'processing structures from :%s' % structures_filename
+        logger.info('processing structures from :%s' % structures_filename)
         ogr_shapefile = ogr.Open(structures_filename)
         ogr_layer = ogr_shapefile.GetLayer(0)
         ogr_layer_feature = ogr_layer.GetNextFeature()
@@ -103,15 +106,15 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
             ogr_layer_feature = None
             ogr_layer_feature = ogr_layer.GetNextFeature()
 
-        print 'structures: %s' % structures
+        logger.info('structures: %s' % structures)
     else:
-        print 'warning: no structures found.'
+        logger.warning('warning: no structures found.')
         structures = None
 
-    print 'Setting up friction...'
+    logger.info('Setting up friction...')
     frictions = []
     if friction_data_filename:
-        print 'processing frictions from :%s' % friction_data_filename
+        logger.info('processing frictions from :%s' % friction_data_filename)
         ogr_shapefile = ogr.Open(friction_data_filename)
         ogr_layer = ogr_shapefile.GetLayer(0)
         ogr_layer_feature = ogr_layer.GetNextFeature()
@@ -124,16 +127,16 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
             ogr_layer_feature = ogr_layer.GetNextFeature()
 
         frictions.append(['All', 0.04])
-        print 'frictions: %s' % frictions
+        logger.info('frictions: %s' % frictions)
     else:
         frictions.append(['All', 0.04])
-        print 'warning: no frictions found.'
+        logger.info('warning: no frictions found.')
 
-    print 'Setting up boundary conditions...'
+    logger.info('Setting up boundary conditions...')
     ogr_shapefile = ogr.Open(boundary_data_filename)
     ogr_layer = ogr_shapefile.GetLayer(0)
     ogr_layer_definition = ogr_layer.GetLayerDefn()
-    print 'ogr_layer_definition.GetGeomType: %s' % ogr_layer_definition.GetGeomType()
+    logger.info('ogr_layer_definition.GetGeomType: %s' % ogr_layer_definition.GetGeomType())
     boundary_tag_index = 0
     bdy_tags = {}
     bdy = {}
@@ -148,8 +151,8 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         ogr_layer_feature = None
         ogr_layer_feature = ogr_layer.GetNextFeature()
         boundary_tag_index = boundary_tag_index + 1
-        print 'bdy_tags: %s' % bdy_tags
-    print 'bdy: %s' % bdy
+        logger.info('bdy_tags: %s' % bdy_tags)
+    logger.info('bdy: %s' % bdy)
 
     boundary_data = su.read_polygon(boundary_data_filename)
 
@@ -167,7 +170,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     domain = Domain(meshname, use_cache=False, verbose=True)
     domain.set_name(outname)
     domain.set_datadir(base_dir + '/outputs')
-    print domain.statistics()
+    logger.info(domain.statistics())
     poly_fun_pairs = [['Extent', elevation_data_filename.encode("utf-8")]]
     topography_function = qs.composite_quantity_setting_function(
         poly_fun_pairs,
@@ -183,7 +186,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     domain.set_quantity('elevation', topography_function, verbose=True, alpha=0.99)
     domain.set_minimum_storable_height(0.005)
 
-    print 'Applying rainfall...'
+    logger.info('Applying rainfall...')
     if rain_data_filename:
         ogr_shapefile = ogr.Open(rain_data_filename)
         ogr_layer = ogr_shapefile.GetLayer(0)
@@ -192,14 +195,14 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         while ogr_layer_feature:
             rainfall = float(ogr_layer_feature.GetField('rate_mm_hr'))
             polygon = su.read_polygon(rain_data_filename)
-            print "applying Polygonal_rate_operator with rate, polygon:"
-            print rainfall
-            print polygon
+            logger.info("applying Polygonal_rate_operator with rate, polygon:")
+            logger.info(rainfall)
+            logger.info(polygon)
             Polygonal_rate_operator(domain, rate=rainfall, factor=1.0e-6, polygon=polygon, default_rate=0.0)
             ogr_layer_feature = None
             ogr_layer_feature = ogr_layer.GetNextFeature()
 
-    print 'Applying surface inflows...'
+    logger.info('Applying surface inflows...')
     if inflow_data_filename:
         ogr_shapefile = ogr.Open(inflow_data_filename)
         ogr_layer = ogr_shapefile.GetLayer(0)
@@ -208,15 +211,15 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         while ogr_layer_feature:
             in_fixed = float(ogr_layer_feature.GetField('in_fixed'))
             line = ogr_layer_feature.GetGeometryRef().GetPoints()
-            print "applying Inlet_operator with line, in_fixed:"
-            print line
-            print in_fixed
+            logger.info("applying Inlet_operator with line, in_fixed:")
+            logger.info(line)
+            logger.info(in_fixed)
             Inlet_operator(domain, line, in_fixed, verbose=False)
             ogr_layer_feature = None
             ogr_layer_feature = ogr_layer.GetNextFeature()
 
-    print 'Applying Boundary Conditions...'
-    print 'Available boundary tags: %s' % domain.get_boundary_tags()
+    logger.info('Applying Boundary Conditions...')
+    logger.info('Available boundary tags: %s' % domain.get_boundary_tags())
 
     Br = anuga.Reflective_boundary(domain)
     Bd = anuga.Dirichlet_boundary([0.0, 0.0, 0.0])
@@ -230,7 +233,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         elif value == 'Bt':
             bdy[key] = Bt
         else:
-            print 'No matching boundary condition exists - please check your shapefile attributes in: %s' % boundary_data_filename
+            logger.info('No matching boundary condition exists - please check your shapefile attributes in: %s' % boundary_data_filename)
 
     # set a default value for exterior & interior boundary if it is not already set
     try:
@@ -242,15 +245,18 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     except KeyError:
         bdy['interior'] = Br
 
-    print 'bdy: %s' % bdy
+    logger.info('bdy: %s' % bdy)
 
     domain.set_boundary(bdy)
 
     domain = distribute(domain)
-    print 'Beginning evolve phase...'
+    logger.info('Beginning evolve phase...')
     for t in domain.evolve(yieldstep, finaltime):
         domain.write_time()
+        print domain.timestepping_statistics()
+        logger.info(domain.timestepping_statistics(track_speeds=True))
         percentage_complete = round(domain.time/domain.finaltime, 3)*100
+        logger.info('%s percent complete' % percentage_complete)
         if run_id != 'local_run':
             write_percentage_complete(run_id, Runs, scenario_name, Scenario, session, percentage_complete)
     domain.sww_merge(delete_old=True)
@@ -260,7 +266,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
     sww_file = sww_file.encode('utf-8', 'ignore')  # sometimes run_id gets turned to a unicode object by celery
     util.Make_Geotif(
         swwFile=sww_file,
-        output_quantities=['depth'],
+        output_quantities=['depth', 'velocity'],
         myTimeStep='max',
         CellSize=1.0,
         lower_left=None,
@@ -276,7 +282,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         k_nearest_neighbours=3,
         creation_options=[]
     )
-    print "Done. Nice work."
+    logger.info("Done. Nice work.")
 
 if __name__ == "__main__":
     # TODO: parse argv for local development
