@@ -268,7 +268,7 @@ def start_sim(run_id, Runs, scenario_name, Scenario, session, **kwargs):
         swwFile=sww_file,
         output_quantities=['depth', 'velocity'],
         myTimeStep='max',
-        CellSize=1.0,
+        CellSize=max_triangle_area,
         lower_left=None,
         upper_right=None,
         EPSG_CODE=project_spatial_ref_epsg_code,
